@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>wave pool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<script type="text/javascript">
+/*
+You are free to reuse and abuse any of this code for any purpose
+Dedicated to the public domain by authour, Dylan Ferris, 2011
+Tested in Firefox 4 and Chrome 10 (requires <audio>)
+
+This is just an experiment:
+- the tracks might not stay in sync... they play independently
+- I noticed some 'clicks' during playback
+- sorry for the messy code, etc..
+
+Also, I'm didn't finish programming the underworld song in, if someone writes a better demo, please post to reddit and I will add it here
+I'm not even sure I have the timing right but it was taking me way too long to transcribe ( I should have gone with Twinkle, Twinkle )
+*/
+
+
+
+function playTracks() {
+
+    // Remove previous track output
+    document.getElementById('output').innerHTML = null;
+
+    // Create a jamTrack object for each input
+    var tracks = [];
+    for (var e in document.getElementById('input').elements)
+        if (typeof document.getElementById('input').elements[e].value == 'string' && document.getElementById('input').elements[e].value.length)
+            tracks.push(new jamTrack(document.getElementById('input').elements[e].value));
+
+    // Play each track
+    for (var i in tracks)
+        tracks[i].play();
+
+}
+
+var jamTracks = [];
+
+function jamTrack(music) {
+
+    this.octave = 4;
+    this.notelen = 0.15;
+
+    this.track = music;
+    var t = jamTracks.push(this)-1;
+    var p = 0;
+
+    // Create an li to display debug data
+    this.li = document.createElement('li');
+    this.li.id = 't'+t;
+    document.getElementById('output').appendChild(this.li);
+
+    this.play = function() {
+        if (typeof jamTracks[t].track[p] != 'string') return 0;
+        var wait = jamTracks[t].playChar(jamTracks[t].track[p]);
+        p++;
+        setTimeout('jamTracks['+t+'].play()',Math.floor(wait*1000));
+    }
+
+    this.playChar = function() {
+        jamTracks[t].li.innerHTML += jamTracks[t].track[p]==' ' ? '.' : jamTracks[t].track[p];
+        var char = jamTracks[t].track[p];
+
+        switch (char) {
+            case undefined: break;
+            case ' ': return jamTracks[t].notelen;
+            case '!': jamTracks[t].notelen = 0.05; break;
+            case '@': jamTracks[t].notelen = 0.1; break;
+            case '#': jamTracks[t].notelen = 0.15; break;
+            case '$': jamTracks[t].notelen = 0.2; break;
+            case '%': jamTracks[t].notelen = 0.25; break;
+            case '^': jamTracks[t].notelen = 0.3; break;
+            case '&': jamTracks[t].notelen = 0.45; break;
+            case '*': jamTracks[t].notelen = 0.6; break;
+            case '-': jamTracks[t].notelen = 1.2; break;
+            case '+': jamTracks[t].notelen = 2.4; break;
+            default:
+                if (parseInt(char)) jamTracks[t].octave = char;
+                else if (n2i(char) > -1) {
+                    playTone(noteFreq(jamTracks[t].octave,n2i(char)), jamTracks[t].notelen);
+                    return jamTracks[t].notelen;
+                }
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
+// get the frequency for a note ( octave 4, note 0 is A at 220Hz )
+function noteFreq(octave,note) { return 27.5 * Math.pow(2,octave-1) * Math.pow(1.059463,note); }
+
+// convert music note to integer
+function n2i(L) { switch (L) {
+    case 'a': return 0;
+    case 'A': return 1;
+    case 'b': return 2;
+    case 'c': return 3;
+    case 'C': return 4;
+    case 'd': return 5;
+    case 'D': return 6;
+    case 'e': return 7;
+    case 'f': return 8;
+    case 'F': return 9;
+    case 'g': return 10;
+    case 'G': return 11;
+    return -1;
+}}
+
+// play a tone (background)
+function playTone(frequency,seconds) {
+
+    document.getElementById('console').innerHTML = Math.round(frequency)+' Hz for '+seconds+' seconds\n'+document.getElementById('console').innerHTML;
+
+    var samplerate = 2000;
+    var volume = 32767;
+    var player = document.createElement('audio');
+
+    var wave = sineWave(frequency,seconds,samplerate,volume);
+
+    var format = 'fmt ' + i2b(32, 16) + i2b(16, 1) + i2b(16, 1) + i2b(32, samplerate) + i2b(32, 2 * samplerate) + i2b(16, 2) + i2b(16, 16);
+    var content = 'data' + i2b(32, 2 * wave.length) + wave;
+    var header = 'RIFF' + i2b(32, format.length + content.length + 20) + 'WAVE';
+
+    player.src = 'data:audio/wav;base64,' + escape(btoa(header + format + content));
+    player.play();
+}
+
+// generate audio data of a sine wave
+function sineWave(freq,len,rate,vol) {
+    var I = len*rate;
+    var p = 0;
+    var s = 2*Math.PI*freq/rate;
+    var w = '';
+    var sin = Math.sin;
+    var chr = String.fromCharCode;
+    for (var i = 0; i < I; i++) {
+        v = sin(p)*vol;
+        p += s;
+        w += chr(v&255,(v>>8)&255);
+    }
+    return w;
+}
+
+// convert integer to binary
+function i2b(b,i) { with (String) switch (b) {
+    case 16: return fromCharCode(i&255,(i>>8)&255);
+    case 32: return fromCharCode(i&255,(i>>8)&255,(i>>16)&255,(i>>24)&255);
+}}
+
+window.onload = function() {
+    // Overwrite the default tracks with hash data and auto play
+    if (document.location.hash.length) {
+        var tracks = document.location.hash.substring(1).split('|');
+        document.getElementById('input').elements[0].value = document.getElementById('input').elements[1].value = null;
+        for (var e in tracks)
+            document.getElementById('input').elements[e].value = tracks[e];
+        playTracks();
+    }
+}
+
+// IE still doesn't have this!
+if(typeof btoa == 'undefined') function btoa (data) {
+    // https://kevin.vanzonneveld.net
+    // +   original by: Tyler Akins (https://rumkin.com)
+    // +   improved by: Bayron Guevara
+    // +   improved by: Thunder.m
+    // +   improved by: Kevin van Zonneveld (https://kevin.vanzonneveld.net)
+    // +   bugfixed by: Pellentesque Malesuada
+    // +   improved by: Kevin van Zonneveld (https://kevin.vanzonneveld.net)
+    // -    depends on: utf8_encode
+    // *     example 1: base64_encode('Kevin van Zonneveld');
+    // *     returns 1: 'S2V2aW4gdmFuIFpvbm5ldmVsZA=='
+    // mozilla has this native
+    // - but breaks in 2.0.0.12!
+    //if (typeof this.window['atob'] == 'function') {
+    //    return atob(data);
+    //}
+    var b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    var o1, o2, o3, h1, h2, h3, h4, bits, i = 0,
+        ac = 0,
+        enc = "",
+        tmp_arr = [];
+
+    if (!data) {
+        return data;
+    }
+
+    do { // pack three octets into four hexets
+        o1 = data.charCodeAt(i++);
+        o2 = data.charCodeAt(i++);
+        o3 = data.charCodeAt(i++);
+
+        bits = o1 << 16 | o2 << 8 | o3;
+
+        h1 = bits >> 18 & 0x3f;
+        h2 = bits >> 12 & 0x3f;
+        h3 = bits >> 6 & 0x3f;
+        h4 = bits & 0x3f;
+
+        // use hexets to index into b64, and append result to encoded string
+        tmp_arr[ac++] = b64.charAt(h1) + b64.charAt(h2) + b64.charAt(h3) + b64.charAt(h4);
+    } while (i < data.length);
+
+    enc = tmp_arr.join('');
+
+    switch (data.length % 3) {
+    case 1:
+        enc = enc.slice(0, -2) + '==';
+        break;
+    case 2:
+        enc = enc.slice(0, -1) + '=';
+        break;
+    }
+
+    return enc;
+}
+</script>
+<style type="text/css">
+body{background:#000;color:#c00;font-family:helvetica,arial,sans-serif;}
+a{color:#fff;text-decoration:none;font-size:64px;margin:64px;font-family:impact;}
+a:hover{color:#c00;}
+input,#output{font-family:monospace;}
+input{width:100%;}
+#console{margin:64px 16px;height:420px;overflow:hidden}
+</style>
+</head>
+<body>
+<h1>HTML5 audio generation experiment</h1>
+<pre>
+abcdefg: notes A - G
+ACDFG: sharp
+[space]: rest
+123456789: change octave
+!@#$%^: change note length
+</pre>
+<form id="input" onsubmit="playTracks();return false;">
+<input value="2c3c2a3a2A3A      2c3c2a3a2A3A      1f2f1d2d1D2D      1f2f1d2d1D2D    @edC^ced1Gf2DeFfeA..." />
+<input value="4c5c4a5a4A5A      4c5c4a5a4A5A      2f3f2d3d2D3D      2f3f2d3d2D3D    @edC^ced2Gf3DeFfeA..." />
+<input value="" />
+<input value="" />
+<input value="" />
+<input type="submit" style="display:none;" />
+</form>
+<a href="javascript:playTracks()">Start</a>
+<ol id="output"></ol>
+<pre id="console"></pre>
+</body>
+</html>
